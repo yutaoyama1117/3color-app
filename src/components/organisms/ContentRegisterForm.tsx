@@ -47,10 +47,15 @@ export function ContentRegisterForm() {
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
 
-  // 書籍スキャン用
-  const [scannedBookMeta, setScannedBookMeta] = useState<Partial<BookMeta> | null>(null)
+  // 書籍メタデータ（スキャンまたは手動入力）
+  const [publisher, setPublisher] = useState('')
+  const [publishedAt, setPublishedAt] = useState('')
+  const [isbn, setIsbn] = useState('')
+  const [coverUrl, setCoverUrl] = useState('')
+  const [bookDescription, setBookDescription] = useState('')
   const [isLookingUp, setIsLookingUp] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
+  const [scanSuccess, setScanSuccess] = useState(false)
 
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -67,36 +72,44 @@ export function ContentRegisterForm() {
     setType(newType)
     setFetchError(null)
     setLookupError(null)
-    setScannedBookMeta(null)
+    setScanSuccess(false)
+    setPublisher('')
+    setPublishedAt('')
+    setIsbn('')
+    setCoverUrl('')
+    setBookDescription('')
   }
 
-  /** ISBNでGoogle Books APIを呼び出してタイトル・著者・メタデータを自動入力 */
-  const lookupByIsbn = async (isbn: string) => {
+  /** ISBNでAPIを呼び出して全書籍情報を自動入力 */
+  const lookupByIsbn = async (scannedIsbn: string) => {
     setIsLookingUp(true)
     setLookupError(null)
+    setScanSuccess(false)
     try {
-      const res = await fetch(`/api/book-lookup?isbn=${isbn}`)
+      const res = await fetch(`/api/book-lookup?isbn=${scannedIsbn}`)
       const data = (await res.json()) as GoogleBooksResult & { error?: string }
 
       if (!res.ok || data.error) {
         setLookupError(data.error ?? '書籍情報の取得に失敗しました。手動で入力してください。')
+        // ISBNだけセット
+        setIsbn(scannedIsbn)
         return
       }
 
-      // タイトル・著者を自動入力（未入力の場合のみ）
-      if (data.title && !title) setTitle(data.title)
+      // タイトル・著者（未入力なら上書き）
+      if (data.title) setTitle(data.title)
       if (data.authors?.length) setAuthor(data.authors.join(', '))
 
-      // 書籍メタデータを一時保存（登録時に保存する）
-      setScannedBookMeta({
-        isbn: data.isbn ?? isbn,
-        publisher: data.publisher ?? '',
-        publishedAt: data.publishedAt ?? '',
-        description: data.description ?? '',
-        coverUrl: data.coverUrl ?? '',
-      })
+      // 書籍メタデータをすべてフォームに反映
+      setIsbn(data.isbn ?? scannedIsbn)
+      setPublisher(data.publisher ?? '')
+      setPublishedAt(data.publishedAt ?? '')
+      setCoverUrl(data.coverUrl ?? '')
+      setBookDescription(data.description ?? '')
+      setScanSuccess(true)
     } catch {
       setLookupError('ネットワークエラーが発生しました')
+      setIsbn(scannedIsbn)
     } finally {
       setIsLookingUp(false)
     }
@@ -144,11 +157,13 @@ export function ContentRegisterForm() {
 
   const canSubmit =
     title.trim().length > 0 &&
-    (currentTab === 'text'
-      ? bodyText.trim().length > 0
+    (type === 'book'
+      ? true                          // 書籍はタイトルのみ必須（本文テキストは任意）
       : currentTab === 'url'
         ? url.trim().length > 0
-        : file !== null)
+        : currentTab === 'file'
+          ? file !== null
+          : bodyText.trim().length > 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -166,9 +181,15 @@ export function ContentRegisterForm() {
       status: currentTab === 'text' ? 'ready' : 'processing',
     })
 
-    // バーコードスキャンで取得した書籍メタデータを保存
-    if (scannedBookMeta) {
-      updateBookMeta(contentId, scannedBookMeta)
+    // 書籍メタデータを保存（スキャン・手動入力どちらでも）
+    if (type === 'book' && (isbn || publisher || publishedAt)) {
+      updateBookMeta(contentId, {
+        isbn: isbn.trim(),
+        publisher: publisher.trim(),
+        publishedAt: publishedAt.trim(),
+        description: bookDescription.trim(),
+        coverUrl: coverUrl.trim(),
+      })
     }
     if (author.trim()) {
       updateAuthor(contentId, author.trim())
@@ -325,29 +346,23 @@ export function ContentRegisterForm() {
         </div>
       )}
 
-      {/* 書籍のみ：バーコードスキャンで自動入力 */}
+      {/* 書籍のみ：バーコードスキャン */}
       {type === 'book' && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
             バーコードスキャン
-            <span className="ml-1 text-xs text-gray-400">（タイトル・著者を自動入力）</span>
+            <span className="ml-1 text-xs text-gray-400">（書籍情報を自動入力）</span>
           </label>
           {isLookingUp ? (
             <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 py-4 text-sm text-blue-600">
-              <span className="animate-spin">⏳</span>
-              書籍情報を取得中…
+              <span className="animate-spin">⏳</span>書籍情報を取得中…
             </div>
           ) : (
             <BarcodeScanButton onIsbnDetected={lookupByIsbn} />
           )}
-          {lookupError && (
-            <p className="text-xs text-red-500">{lookupError}</p>
-          )}
-          {scannedBookMeta && (
-            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
-              <span>✅</span>
-              <span>書籍情報を取得しました（出版社・発行日・ISBNも保存されます）</span>
-            </div>
+          {lookupError && <p className="text-xs text-red-500">{lookupError}</p>}
+          {scanSuccess && (
+            <p className="text-xs text-green-600">✅ 書籍情報を取得しました。必要に応じて編集できます。</p>
           )}
         </div>
       )}
@@ -373,8 +388,7 @@ export function ContentRegisterForm() {
       {/* 著者（任意） */}
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">
-          著者・発行者
-          <span className="ml-1 text-xs text-gray-400">（任意）</span>
+          著者<span className="ml-1 text-xs text-gray-400">（任意）</span>
         </label>
         <input
           type="text"
@@ -385,18 +399,59 @@ export function ContentRegisterForm() {
         />
       </div>
 
+      {/* 書籍のみ：出版社・発行日・ISBN */}
+      {type === 'book' && (
+        <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+          <p className="text-xs font-semibold text-gray-500">書籍情報（スキャンで自動入力・任意）</p>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600">出版社</label>
+            <input
+              type="text"
+              value={publisher}
+              onChange={(e) => setPublisher(e.target.value)}
+              placeholder="例：ダイヤモンド社"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600">発行日</label>
+            <input
+              type="text"
+              value={publishedAt}
+              onChange={(e) => setPublishedAt(e.target.value)}
+              placeholder="例：2019-01-26"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-600">ISBN</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={isbn}
+              onChange={(e) => setIsbn(e.target.value)}
+              placeholder="例：9784478106907"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+      )}
+
       {/* 本文テキスト（テキストタブのみ表示） */}
       {currentTab === 'text' && (
         <div className="space-y-2">
           <label className="block text-sm font-medium text-gray-700">
-            本文テキスト <span className="text-red-500">*</span>
+            本文テキスト
+            {type === 'book'
+              ? <span className="ml-1 text-xs text-gray-400">（任意・あとから追加できます）</span>
+              : <span className="text-red-500 ml-1">*</span>
+            }
           </label>
 
           {/* 書籍のみ：カメラOCRボタンを表示 */}
           {type === 'book' && (
             <CameraOcrButton
               onTextExtracted={(extracted) => {
-                // 既存テキストに追記（複数ページ撮影に対応）
                 setBodyText((prev) =>
                   prev ? prev + '\n\n' + extracted : extracted
                 )
@@ -407,8 +462,8 @@ export function ContentRegisterForm() {
           <textarea
             value={bodyText}
             onChange={(e) => setBodyText(e.target.value)}
-            placeholder="ここにテキストを貼り付けてください"
-            rows={10}
+            placeholder={type === 'book' ? '本の気になった文章をここに貼り付けてください（任意）' : 'ここにテキストを貼り付けてください'}
+            rows={type === 'book' ? 6 : 10}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm leading-relaxed focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           {bodyText.length > 0 && (
