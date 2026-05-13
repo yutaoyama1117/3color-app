@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useContentStore } from '@/stores/contentStore'
 import { useJobStore, runJobInStore } from '@/stores/jobStore'
 import { FileUploadArea } from '@/components/molecules/FileUploadArea'
@@ -349,13 +350,12 @@ export function ContentRegisterForm() {
 
       {/* 送信ボタン */}
       <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="rounded-lg border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        <Link
+          href="/app"
+          className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
         >
           キャンセル
-        </button>
+        </Link>
         <button
           type="submit"
           disabled={!canSubmit || isSubmitting}

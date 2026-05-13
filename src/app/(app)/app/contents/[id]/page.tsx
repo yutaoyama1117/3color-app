@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
+import Link from 'next/link'
 import { useContentStore } from '@/stores/contentStore'
 import { useMarkStore } from '@/stores/markStore'
 import { useJobStore } from '@/stores/jobStore'
@@ -23,65 +24,50 @@ export default function ContentDetailPage({ params }: Props) {
   const [showSummary, setShowSummary] = useState(false)
   const content = getContent(id)
 
-  // SSE / 内部イベントを購読してジョブ完了時に画面更新を促す
   useJobEvents({})
 
   if (!content) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 text-center">
-        <p className="mb-2 text-lg font-medium text-gray-700">
-          コンテンツが見つかりません
-        </p>
-        <a href="/app" className="text-sm text-blue-600 hover:underline">
-          マイ本棚へ戻る
-        </a>
+      <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+        <p className="mb-4 text-lg font-medium text-gray-700">コンテンツが見つかりません</p>
+        <Link href="/app" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
+          ← マイ本棚へ
+        </Link>
       </div>
     )
   }
 
-  // 処理中表示
   if (content.status === 'processing') {
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <a href="/app" className="mb-4 inline-block text-sm text-gray-500 hover:text-gray-700">
-          ← マイ本棚へ戻る
-        </a>
-        <h1 className="mb-2 text-xl font-semibold text-gray-900">{content.title}</h1>
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <Link href="/app" className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          ← 本棚へ戻る
+        </Link>
+        <h1 className="mb-4 text-xl font-bold text-gray-900">{content.title}</h1>
         <JobProgressIndicator
           message={
-            content.type === 'web'
-              ? '記事を取得しています'
-              : content.type === 'youtube'
-                ? '字幕を取得しています'
-                : content.type === 'pdf'
-                  ? 'PDFを解析しています'
-                  : content.type === 'audio'
-                    ? '音声を文字起こししています'
-                    : '処理中'
+            content.type === 'web' ? '記事を取得しています' :
+            content.type === 'youtube' ? '字幕を取得しています' :
+            content.type === 'pdf' ? 'PDFを解析しています' :
+            content.type === 'audio' ? '音声を文字起こししています' : '処理中'
           }
         />
       </div>
     )
   }
 
-  // エラー表示
   if (content.status === 'error') {
     const lastJob = getJobsByContentId(id)[0]
     return (
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <a href="/app" className="mb-4 inline-block text-sm text-gray-500 hover:text-gray-700">
-          ← マイ本棚へ戻る
-        </a>
-        <h1 className="mb-2 text-xl font-semibold text-gray-900">{content.title}</h1>
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <Link href="/app" className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+          ← 本棚へ戻る
+        </Link>
+        <h1 className="mb-4 text-xl font-bold text-gray-900">{content.title}</h1>
         <JobErrorRetry
           message={lastJob?.errorMessage ?? '取得に失敗しました'}
-          onRetry={() => {
-            // ジョブ再投入
-            updateContentStatus(id, 'processing')
-          }}
-          onManual={() => {
-            updateContentStatus(id, 'ready', { bodyText: '' })
-          }}
+          onRetry={() => updateContentStatus(id, 'processing')}
+          onManual={() => updateContentStatus(id, 'ready', { bodyText: '' })}
         />
       </div>
     )
@@ -89,13 +75,11 @@ export default function ContentDetailPage({ params }: Props) {
 
   if (!content.bodyText) {
     return (
-      <div className="flex flex-col items-center justify-center py-32 text-center">
-        <p className="mb-2 text-lg font-medium text-gray-700">
-          本文テキストがありません
-        </p>
-        <a href="/app" className="text-sm text-blue-600 hover:underline">
-          マイ本棚へ戻る
-        </a>
+      <div className="flex flex-col items-center justify-center py-32 text-center px-6">
+        <p className="mb-4 text-lg font-medium text-gray-700">本文テキストがありません</p>
+        <Link href="/app" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
+          ← マイ本棚へ
+        </Link>
       </div>
     )
   }
@@ -115,35 +99,32 @@ export default function ContentDetailPage({ params }: Props) {
           bodyText={content.bodyText}
         />
 
-        {/* AI要約セクション切替 */}
         {showSummary && (
-          <div className="mx-auto max-w-3xl px-6 pb-10">
+          <div className="mx-auto max-w-2xl px-4 pb-10">
             <AiSummarySection content={content} monthlyUsage={{ used: 0, limit: 10 }} />
           </div>
         )}
       </div>
 
-      {/* フッター */}
-      <footer className="border-t border-gray-100 bg-white px-4 py-3">
+      {/* フッター：モバイル最適化 */}
+      <footer className="border-t border-gray-100 bg-white px-4 py-3 safe-area-bottom">
         <div className="flex items-center gap-2">
-          {/* 本棚へ戻る（目立つボタン） */}
-          <a
+          <Link
             href="/app"
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 active:bg-gray-50"
           >
-            ← 本棚へ戻る
-          </a>
-
+            ← 本棚へ
+          </Link>
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowSummary((v) => !v)}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold text-blue-700 active:bg-blue-100"
             >
               🤖 AI要約
             </button>
             <button
               onClick={handleExport}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-600 active:bg-gray-50"
             >
               📥 保存
             </button>

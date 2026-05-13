@@ -1,39 +1,57 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { useContentStore } from '@/stores/contentStore'
 import { ContentCard } from '@/components/molecules/ContentCard'
 import { SearchFilterBar } from '@/components/molecules/SearchFilterBar'
 import type { MarkColor } from '@/types/mark'
 
-export default function AppTopPage() {
+// useSearchParams を使う部分を分離（Suspense 必須）
+function AddedBanner() {
+  const searchParams = useSearchParams()
+  const { contents } = useContentStore()
+  const [addedContent, setAddedContent] = useState<{ id: string; title: string } | null>(null)
+
+  useEffect(() => {
+    const id = searchParams.get('added')
+    if (!id) return
+    const content = contents.find((c) => c.id === id)
+    if (content) setAddedContent({ id: content.id, title: content.title })
+    window.history.replaceState({}, '', '/app')
+    const t = setTimeout(() => setAddedContent(null), 6000)
+    return () => clearTimeout(t)
+  }, [searchParams, contents])
+
+  if (!addedContent) return null
+
+  return (
+    <div className="mb-5 flex items-center justify-between rounded-2xl border border-green-200 bg-green-50 px-4 py-3.5 shadow-sm">
+      <div>
+        <p className="text-sm font-semibold text-green-800">✅ 登録完了</p>
+        <p className="mt-0.5 text-xs text-green-600 line-clamp-1">「{addedContent.title}」</p>
+      </div>
+      <Link
+        href={`/app/contents/${addedContent.id}`}
+        className="ml-3 shrink-0 rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white active:bg-green-700"
+      >
+        マーキングする →
+      </Link>
+    </div>
+  )
+}
+
+function AppContent() {
   const { contents } = useContentStore()
   const [keyword, setKeyword] = useState('')
   const [activeColors, setActiveColors] = useState<MarkColor[]>([])
-  const [addedId, setAddedId] = useState<string | null>(null)
-  const searchParams = useSearchParams()
-
-  // 登録完了通知（?added=xxxで遷移してきた場合）
-  useEffect(() => {
-    const id = searchParams.get('added')
-    if (id) {
-      setAddedId(id)
-      // URLからパラメータを消す（履歴を汚さない）
-      window.history.replaceState({}, '', '/app')
-      // 5秒後に通知を消す
-      const t = setTimeout(() => setAddedId(null), 5000)
-      return () => clearTimeout(t)
-    }
-  }, [searchParams])
 
   const handleColorToggle = (color: MarkColor) => {
     setActiveColors((prev) =>
       prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color],
     )
   }
-
-  const addedContent = contents.find((c) => c.id === addedId)
 
   const filtered = contents.filter((content) => {
     if (keyword.trim()) {
@@ -43,46 +61,31 @@ export default function AppTopPage() {
       if (!inTitle && !inAuthor) return false
     }
     if (activeColors.length > 0) {
-      const allMatch = activeColors.every(
-        (color) => (content.markCounts?.[color] ?? 0) > 0,
-      )
+      const allMatch = activeColors.every((color) => (content.markCounts?.[color] ?? 0) > 0)
       if (!allMatch) return false
     }
     return true
   })
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
       {/* 登録完了バナー */}
-      {addedContent && (
-        <div className="mb-6 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-          <div>
-            <p className="text-sm font-medium text-green-800">
-              ✅ 「{addedContent.title}」を登録しました
-            </p>
-            <p className="text-xs text-green-600 mt-0.5">タップして色マークをつけましょう</p>
-          </div>
-          <a
-            href={`/app/contents/${addedContent.id}`}
-            className="ml-4 shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
-          >
-            マーキングする →
-          </a>
-        </div>
-      )}
+      <Suspense>
+        <AddedBanner />
+      </Suspense>
 
-      {/* ヘッダー行 */}
+      {/* ヘッダー */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">マイ本棚</h1>
-        <a
+        <Link
           href="/app/register"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-1 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm active:bg-blue-700"
         >
-          ＋ コンテンツを追加
-        </a>
+          ＋ 追加
+        </Link>
       </div>
 
-      {/* 検索・フィルター（コンテンツが1件以上あるときのみ表示） */}
+      {/* 検索・フィルター */}
       {contents.length > 0 && (
         <SearchFilterBar
           keyword={keyword}
@@ -96,11 +99,9 @@ export default function AppTopPage() {
       {filtered.length > 0 ? (
         <>
           {(keyword || activeColors.length > 0) && (
-            <p className="mb-3 text-sm text-gray-400">
-              {filtered.length} 件ヒット
-            </p>
+            <p className="mb-3 text-sm text-gray-400">{filtered.length} 件ヒット</p>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {filtered.map((content) => (
               <ContentCard
                 key={content.id}
@@ -111,33 +112,32 @@ export default function AppTopPage() {
           </div>
         </>
       ) : contents.length === 0 ? (
-        /* 空状態 */
-        <div className="flex flex-col items-center rounded-2xl border-2 border-dashed border-gray-200 py-20 text-center">
-          <div className="mb-4 text-5xl">📚</div>
-          <p className="mb-2 text-lg font-medium text-gray-700">
-            まだコンテンツがありません
-          </p>
-          <p className="mb-6 text-sm text-gray-400">
-            本・記事・動画を登録してマーキングを始めましょう
-          </p>
-          <a
+        <div className="flex flex-col items-center rounded-3xl border-2 border-dashed border-gray-200 py-20 text-center">
+          <div className="mb-4 text-6xl">📚</div>
+          <p className="mb-1 text-lg font-bold text-gray-800">まだ何もありません</p>
+          <p className="mb-8 text-sm text-gray-400">本・記事・動画を登録してみましょう</p>
+          <Link
             href="/app/register"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow active:bg-blue-700"
           >
-            コンテンツを登録する
-          </a>
+            ＋ 最初のコンテンツを追加
+          </Link>
         </div>
       ) : (
-        /* 検索結果ゼロ */
         <div className="flex flex-col items-center py-16 text-center">
-          <p className="mb-1 text-base font-medium text-gray-600">
-            該当するコンテンツがありません
-          </p>
-          <p className="text-sm text-gray-400">
-            検索条件を変えてみてください
-          </p>
+          <p className="text-base font-medium text-gray-500">該当するコンテンツがありません</p>
+          <p className="mt-1 text-sm text-gray-400">検索条件を変えてみてください</p>
         </div>
       )}
     </div>
+  )
+}
+
+// Suspense で囲んでクラッシュを防ぐ
+export default function AppTopPage() {
+  return (
+    <Suspense fallback={<div className="flex h-32 items-center justify-center text-gray-400 text-sm">読み込み中…</div>}>
+      <AppContent />
+    </Suspense>
   )
 }
