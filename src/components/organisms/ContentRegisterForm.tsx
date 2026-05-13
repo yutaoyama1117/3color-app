@@ -115,9 +115,9 @@ export function ContentRegisterForm() {
       status: currentTab === 'text' ? 'ready' : 'processing',
     })
 
-    // テキスト直接入力の場合はそのまま詳細ページへ
+    // テキスト直接入力の場合は本棚へ（マーキングは任意）
     if (currentTab === 'text') {
-      router.push(`/app/contents/${contentId}`)
+      router.push(`/app?added=${contentId}`)
       return
     }
 
@@ -364,7 +364,7 @@ export function ContentRegisterForm() {
           {isSubmitting
             ? '登録中…'
             : currentTab === 'text'
-              ? '登録してマーキングへ'
+              ? '登録する'
               : '登録してバックグラウンド取得'}
         </button>
       </div>

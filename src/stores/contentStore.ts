@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { DEMO_CONTENTS } from '@/lib/mock/contents'
 import type { ContentData, ContentStatus, RegisterContentInput } from '@/types/content'
 
@@ -18,41 +19,48 @@ interface ContentStore {
   ) => void
 }
 
-export const useContentStore = create<ContentStore>((set, get) => ({
-  contents: DEMO_CONTENTS,
+export const useContentStore = create<ContentStore>()(
+  persist(
+    (set, get) => ({
+      contents: DEMO_CONTENTS,
 
-  addContent: (input) => {
-    const id = `content-${Date.now()}`
-    const now = new Date()
-    const { status, ...rest } = input
-    const newContent: ContentData = {
-      id,
-      userId: 'demo-user',
-      status: status ?? 'ready',
-      createdAt: now,
-      updatedAt: now,
-      markCounts: { red: 0, blue: 0, green: 0 },
-      ...rest,
+      addContent: (input) => {
+        const id = `content-${Date.now()}`
+        const now = new Date()
+        const { status, ...rest } = input
+        const newContent: ContentData = {
+          id,
+          userId: 'demo-user',
+          status: status ?? 'ready',
+          createdAt: now,
+          updatedAt: now,
+          markCounts: { red: 0, blue: 0, green: 0 },
+          ...rest,
+        }
+        set((state) => ({ contents: [newContent, ...state.contents] }))
+        return id
+      },
+
+      removeContent: (id) => {
+        set((state) => ({ contents: state.contents.filter((c) => c.id !== id) }))
+      },
+
+      getContent: (id) => {
+        return get().contents.find((c) => c.id === id)
+      },
+
+      updateContentStatus: (id, status, patch) => {
+        set((state) => ({
+          contents: state.contents.map((c) =>
+            c.id === id
+              ? { ...c, status, updatedAt: new Date(), ...(patch ?? {}) }
+              : c,
+          ),
+        }))
+      },
+    }),
+    {
+      name: '3color-contents', // localStorage のキー名
     }
-    set((state) => ({ contents: [newContent, ...state.contents] }))
-    return id
-  },
-
-  removeContent: (id) => {
-    set((state) => ({ contents: state.contents.filter((c) => c.id !== id) }))
-  },
-
-  getContent: (id) => {
-    return get().contents.find((c) => c.id === id)
-  },
-
-  updateContentStatus: (id, status, patch) => {
-    set((state) => ({
-      contents: state.contents.map((c) =>
-        c.id === id
-          ? { ...c, status, updatedAt: new Date(), ...(patch ?? {}) }
-          : c,
-      ),
-    }))
-  },
-}))
+  )
+)

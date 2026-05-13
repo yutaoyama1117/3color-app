@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useContentStore } from '@/stores/contentStore'
 import { ContentCard } from '@/components/molecules/ContentCard'
 import { SearchFilterBar } from '@/components/molecules/SearchFilterBar'
@@ -10,6 +11,21 @@ export default function AppTopPage() {
   const { contents } = useContentStore()
   const [keyword, setKeyword] = useState('')
   const [activeColors, setActiveColors] = useState<MarkColor[]>([])
+  const [addedId, setAddedId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+
+  // 登録完了通知（?added=xxxで遷移してきた場合）
+  useEffect(() => {
+    const id = searchParams.get('added')
+    if (id) {
+      setAddedId(id)
+      // URLからパラメータを消す（履歴を汚さない）
+      window.history.replaceState({}, '', '/app')
+      // 5秒後に通知を消す
+      const t = setTimeout(() => setAddedId(null), 5000)
+      return () => clearTimeout(t)
+    }
+  }, [searchParams])
 
   const handleColorToggle = (color: MarkColor) => {
     setActiveColors((prev) =>
@@ -17,15 +33,15 @@ export default function AppTopPage() {
     )
   }
 
+  const addedContent = contents.find((c) => c.id === addedId)
+
   const filtered = contents.filter((content) => {
-    // キーワード絞り込み
     if (keyword.trim()) {
       const kw = keyword.trim().toLowerCase()
       const inTitle = content.title.toLowerCase().includes(kw)
       const inAuthor = content.author?.toLowerCase().includes(kw) ?? false
       if (!inTitle && !inAuthor) return false
     }
-    // 色フィルター：選択した色すべてにマークが1件以上あるもの
     if (activeColors.length > 0) {
       const allMatch = activeColors.every(
         (color) => (content.markCounts?.[color] ?? 0) > 0,
@@ -37,6 +53,24 @@ export default function AppTopPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
+      {/* 登録完了バナー */}
+      {addedContent && (
+        <div className="mb-6 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <div>
+            <p className="text-sm font-medium text-green-800">
+              ✅ 「{addedContent.title}」を登録しました
+            </p>
+            <p className="text-xs text-green-600 mt-0.5">タップして色マークをつけましょう</p>
+          </div>
+          <a
+            href={`/app/contents/${addedContent.id}`}
+            className="ml-4 shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+          >
+            マーキングする →
+          </a>
+        </div>
+      )}
+
       {/* ヘッダー行 */}
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">マイ本棚</h1>

@@ -124,32 +124,30 @@ export default function ContentDetailPage({ params }: Props) {
       </div>
 
       {/* フッター */}
-      <footer className="border-t border-gray-100 bg-gray-50 px-6 py-2">
-        <div className="flex items-center gap-4 text-xs text-gray-500">
-          <a href="/app" className="hover:text-gray-700">
+      <footer className="border-t border-gray-100 bg-white px-4 py-3">
+        <div className="flex items-center gap-2">
+          {/* 本棚へ戻る（目立つボタン） */}
+          <a
+            href="/app"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+          >
             ← 本棚へ戻る
           </a>
-          <span className="inline-block rounded-sm border-b-2 border-red-500 bg-red-200/60 px-1">
-            🔴 客観的最重要
-          </span>
-          <span className="inline-block rounded-sm border-b-2 border-blue-500 bg-blue-200/60 px-1">
-            🔵 客観的重要
-          </span>
-          <span className="inline-block rounded-sm border-b-2 border-green-500 bg-green-200/60 px-1">
-            🟢 個人的気づき
-          </span>
-          <button
-            onClick={() => setShowSummary((v) => !v)}
-            className="ml-auto rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            {showSummary ? '🤖 AI要約を隠す' : '🤖 AI要約を見る'}
-          </button>
-          <button
-            onClick={handleExport}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
-          >
-            📥 エクスポート
-          </button>
+
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowSummary((v) => !v)}
+              className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              🤖 AI要約
+            </button>
+            <button
+              onClick={handleExport}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            >
+              📥 保存
+            </button>
+          </div>
         </div>
       </footer>
     </div>

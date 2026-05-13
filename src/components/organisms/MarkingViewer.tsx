@@ -76,6 +76,7 @@ export function MarkingViewer({ contentId, title, bodyText }: MarkingViewerProps
   const textContainerRef = useRef<HTMLDivElement>(null)
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null)
   const [selectedMarkId, setSelectedMarkId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ color: MarkColor; text: string } | null>(null)
 
   const { marks, addMark } = useMarkStore()
   const contentMarks = marks.filter((m) => m.contentId === contentId)
@@ -150,6 +151,9 @@ export function MarkingViewer({ contentId, title, bodyText }: MarkingViewerProps
         charOffsetEnd: pendingSelection.endOffset,
       })
       window.getSelection()?.removeAllRanges()
+      // マーク追加トースト通知
+      setToast({ color, text: pendingSelection.text.slice(0, 20) })
+      setTimeout(() => setToast(null), 2500)
       setPendingSelection(null)
     },
     [pendingSelection, contentId, addMark]
@@ -177,8 +181,20 @@ export function MarkingViewer({ contentId, title, bodyText }: MarkingViewerProps
 
   const selectedMark = contentMarks.find((m) => m.id === selectedMarkId) ?? null
 
+  // 色ラベル
+  const colorLabel: Record<MarkColor, string> = { red: '🔴 赤', blue: '🔵 青', green: '🟢 緑' }
+
   return (
     <div className="flex h-full gap-0">
+      {/* マーク追加トースト */}
+      {toast && (
+        <div className="pointer-events-none fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full bg-gray-900/90 px-4 py-2 text-sm text-white shadow-lg backdrop-blur-sm">
+            <span>{colorLabel[toast.color]}マークを追加しました</span>
+          </div>
+        </div>
+      )}
+
       {/* メインコンテンツエリア */}
       <div className="flex-1 overflow-auto">
         {/* 色の凡例バー（常時表示） */}

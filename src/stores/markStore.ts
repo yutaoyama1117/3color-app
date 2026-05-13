@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { DEMO_MARKS } from '@/lib/mock/marks'
 import type { MarkColor, MarkData } from '@/types/mark'
 
@@ -12,7 +13,7 @@ interface AddMarkInput {
 
 interface MarkStore {
   marks: MarkData[]
-  addMark: (input: AddMarkInput) => void
+  addMark: (input: AddMarkInput) => string
   removeMark: (id: string) => void
   updateMarkColor: (id: string, color: MarkColor) => void
   updateMarkComment: (id: string, comment: string) => void
@@ -23,48 +24,48 @@ interface MarkStore {
   ) => void
 }
 
-export const useMarkStore = create<MarkStore>((set) => ({
-  marks: DEMO_MARKS,
+export const useMarkStore = create<MarkStore>()(
+  persist(
+    (set) => ({
+      marks: DEMO_MARKS,
 
-  addMark: (input) => {
-    const newMark: MarkData = {
-      id: `mark-${Date.now()}`,
-      ...input,
-      createdAt: new Date(),
+      addMark: (input) => {
+        const id = `mark-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+        const newMark: MarkData = {
+          id,
+          ...input,
+          createdAt: new Date(),
+        }
+        set((state) => ({ marks: [...state.marks, newMark] }))
+        return id
+      },
+
+      removeMark: (id) => {
+        set((state) => ({ marks: state.marks.filter((m) => m.id !== id) }))
+      },
+
+      updateMarkColor: (id, color) => {
+        set((state) => ({
+          marks: state.marks.map((m) => (m.id === id ? { ...m, color } : m)),
+        }))
+      },
+
+      updateMarkComment: (id, comment) => {
+        set((state) => ({
+          marks: state.marks.map((m) => (m.id === id ? { ...m, comment } : m)),
+        }))
+      },
+
+      applyReview: (id, update) => {
+        set((state) => ({
+          marks: state.marks.map((m) =>
+            m.id === id ? { ...m, ...update, lastReviewedAt: new Date() } : m,
+          ),
+        }))
+      },
+    }),
+    {
+      name: '3color-marks', // localStorage のキー名
     }
-
-    // 楽観的UI更新: 即座にstateに追加
-    set((state) => ({ marks: [...state.marks, newMark] }))
-
-    // 本番実装では API 呼び出し + エラー時ロールバック
-    // simulateApiCall(newMark).catch(() => {
-    //   set((state) => ({ marks: state.marks.filter((m) => m.id !== newMark.id) }))
-    //   toast.error('マークの保存に失敗しました')
-    // })
-  },
-
-  removeMark: (id) => {
-    // 楽観的UI更新: 即座に削除
-    set((state) => ({ marks: state.marks.filter((m) => m.id !== id) }))
-  },
-
-  updateMarkColor: (id, color) => {
-    set((state) => ({
-      marks: state.marks.map((m) => (m.id === id ? { ...m, color } : m)),
-    }))
-  },
-
-  updateMarkComment: (id, comment) => {
-    set((state) => ({
-      marks: state.marks.map((m) => (m.id === id ? { ...m, comment } : m)),
-    }))
-  },
-
-  applyReview: (id, update) => {
-    set((state) => ({
-      marks: state.marks.map((m) =>
-        m.id === id ? { ...m, ...update, lastReviewedAt: new Date() } : m,
-      ),
-    }))
-  },
-}))
+  )
+)
