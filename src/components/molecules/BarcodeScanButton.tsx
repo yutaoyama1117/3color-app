@@ -9,7 +9,7 @@ interface BarcodeScanButtonProps {
 
 /**
  * カメラでバーコードを撮影してISBNを読み取るボタン。
- * BarcodeDetector API（Chrome/Safari対応）を使い、非対応の場合は手動入力に切り替える。
+ * @zxing/library を使用してiOS Safariを含む全ブラウザで動作する。
  */
 export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -25,32 +25,36 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
     setErrorMsg(null)
 
     try {
-      // BarcodeDetector API の利用可否を確認
-      if (!('BarcodeDetector' in window)) {
-        // 非対応ブラウザ → 手動入力に切り替え
-        setStatus('manual')
-        return
-      }
+      // 画像をCanvasに描画してImageDataを取得
+      const imageBitmap = await createImageBitmap(file)
+      const canvas = document.createElement('canvas')
+      canvas.width = imageBitmap.width
+      canvas.height = imageBitmap.height
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(imageBitmap, 0, 0)
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
-      // @ts-expect-error BarcodeDetector は型定義が不完全なため
-      const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e'] })
-      const img = await createImageBitmap(file)
-      const codes = await detector.detect(img)
+      // @zxing/library でバーコード解析（動的インポートでSSR回避）
+      const { MultiFormatReader, RGBLuminanceSource, BinaryBitmap, HybridBinarizer } =
+        await import('@zxing/library')
 
-      if (codes.length === 0) {
-        setErrorMsg('バーコードを認識できませんでした。明るい場所で再試行するか、ISBNを手動入力してください。')
-        setStatus('manual')
-        return
-      }
+      const luminanceSource = new RGBLuminanceSource(
+        new Uint8ClampedArray(imageData.data.buffer),
+        canvas.width,
+        canvas.height,
+      )
+      const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource))
+      const reader = new MultiFormatReader()
+      const result = reader.decode(binaryBitmap)
 
-      const raw = codes[0].rawValue as string
-      // ISBN-13は978または979始まりの13桁
+      const raw = result.getText()
       const isbn = raw.replace(/\D/g, '')
+
+      // ISBN-13（978/979始まり13桁）またはISBN-10（10桁）
       if (isbn.length === 13 && (isbn.startsWith('978') || isbn.startsWith('979'))) {
         onIsbnDetected(isbn)
         setStatus('idle')
       } else if (isbn.length === 10) {
-        // ISBN-10をISBN-13に変換
         onIsbnDetected(isbn)
         setStatus('idle')
       } else {
@@ -58,9 +62,11 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
         setStatus('manual')
       }
     } catch {
-      setErrorMsg('スキャンに失敗しました')
+      // NotFoundException など → 手動入力へ
+      setErrorMsg('バーコードを認識できませんでした。明るい場所で再試行するか、ISBNを手動入力してください。')
       setStatus('manual')
     } finally {
+      // 同じファイルを再選択できるようリセット
       if (inputRef.current) inputRef.current.value = ''
     }
   }
@@ -79,6 +85,7 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
 
   return (
     <div className="space-y-2">
+      {/* カメラ入力（非表示） */}
       <input
         ref={inputRef}
         type="file"
@@ -102,7 +109,7 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
         {status === 'scanning' ? (
           <>
             <span className="animate-spin">⏳</span>
-            スキャン中…
+            読み取り中…
           </>
         ) : (
           <>
@@ -112,7 +119,7 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
         )}
       </button>
 
-      {/* 手動入力モード */}
+      {/* エラー＆手動入力モード */}
       {(status === 'manual' || status === 'error') && (
         <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
           <p className="text-[12px] font-medium text-gray-600">ISBNを手動入力</p>
@@ -138,7 +145,7 @@ export function BarcodeScanButton({ onIsbnDetected }: BarcodeScanButtonProps) {
         </div>
       )}
 
-      {/* 手動入力へのリンク（通常時） */}
+      {/* 手動入力リンク（通常時） */}
       {status === 'idle' && (
         <button
           type="button"
