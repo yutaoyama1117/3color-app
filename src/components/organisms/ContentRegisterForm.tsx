@@ -7,7 +7,18 @@ import { useContentStore } from '@/stores/contentStore'
 import { useJobStore, runJobInStore } from '@/stores/jobStore'
 import { FileUploadArea } from '@/components/molecules/FileUploadArea'
 import { CameraOcrButton } from '@/components/molecules/CameraOcrButton'
-import type { ContentType } from '@/types/content'
+import { BarcodeScanButton } from '@/components/molecules/BarcodeScanButton'
+import type { ContentType, BookMeta } from '@/types/content'
+
+interface GoogleBooksResult {
+  title?: string
+  authors?: string[]
+  publisher?: string
+  publishedAt?: string
+  description?: string
+  isbn?: string
+  coverUrl?: string
+}
 
 type TabMode = 'text' | 'url' | 'file'
 
@@ -26,7 +37,7 @@ const TYPE_OPTIONS: {
 
 export function ContentRegisterForm() {
   const router = useRouter()
-  const { addContent, updateContentStatus } = useContentStore()
+  const { addContent, updateContentStatus, updateBookMeta, updateAuthor } = useContentStore()
   const { enqueue } = useJobStore()
 
   const [type, setType] = useState<ContentType>('book')
@@ -35,6 +46,11 @@ export function ContentRegisterForm() {
   const [bodyText, setBodyText] = useState('')
   const [url, setUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+
+  // 書籍スキャン用
+  const [scannedBookMeta, setScannedBookMeta] = useState<Partial<BookMeta> | null>(null)
+  const [isLookingUp, setIsLookingUp] = useState(false)
+  const [lookupError, setLookupError] = useState<string | null>(null)
 
   const [isFetching, setIsFetching] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
@@ -50,6 +66,40 @@ export function ContentRegisterForm() {
   const handleTypeChange = (newType: ContentType) => {
     setType(newType)
     setFetchError(null)
+    setLookupError(null)
+    setScannedBookMeta(null)
+  }
+
+  /** ISBNでGoogle Books APIを呼び出してタイトル・著者・メタデータを自動入力 */
+  const lookupByIsbn = async (isbn: string) => {
+    setIsLookingUp(true)
+    setLookupError(null)
+    try {
+      const res = await fetch(`/api/book-lookup?isbn=${isbn}`)
+      const data = (await res.json()) as GoogleBooksResult & { error?: string }
+
+      if (!res.ok || data.error) {
+        setLookupError(data.error ?? '書籍情報の取得に失敗しました。手動で入力してください。')
+        return
+      }
+
+      // タイトル・著者を自動入力（未入力の場合のみ）
+      if (data.title && !title) setTitle(data.title)
+      if (data.authors?.length) setAuthor(data.authors.join(', '))
+
+      // 書籍メタデータを一時保存（登録時に保存する）
+      setScannedBookMeta({
+        isbn: data.isbn ?? isbn,
+        publisher: data.publisher ?? '',
+        publishedAt: data.publishedAt ?? '',
+        description: data.description ?? '',
+        coverUrl: data.coverUrl ?? '',
+      })
+    } catch {
+      setLookupError('ネットワークエラーが発生しました')
+    } finally {
+      setIsLookingUp(false)
+    }
   }
 
   // URL から本文を取得（Web/YouTube）
@@ -115,6 +165,14 @@ export function ContentRegisterForm() {
       // ファイル系・URLジョブ系は status='processing' で登録
       status: currentTab === 'text' ? 'ready' : 'processing',
     })
+
+    // バーコードスキャンで取得した書籍メタデータを保存
+    if (scannedBookMeta) {
+      updateBookMeta(contentId, scannedBookMeta)
+    }
+    if (author.trim()) {
+      updateAuthor(contentId, author.trim())
+    }
 
     // テキスト直接入力の場合は本棚へ（マーキングは任意）
     if (currentTab === 'text') {
@@ -263,6 +321,33 @@ export function ContentRegisterForm() {
             <p className="text-xs text-blue-600">
               💡 OpenAI Whisperで音声を自動文字起こしします（最大200MB）
             </p>
+          )}
+        </div>
+      )}
+
+      {/* 書籍のみ：バーコードスキャンで自動入力 */}
+      {type === 'book' && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            バーコードスキャン
+            <span className="ml-1 text-xs text-gray-400">（タイトル・著者を自動入力）</span>
+          </label>
+          {isLookingUp ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 py-4 text-sm text-blue-600">
+              <span className="animate-spin">⏳</span>
+              書籍情報を取得中…
+            </div>
+          ) : (
+            <BarcodeScanButton onIsbnDetected={lookupByIsbn} />
+          )}
+          {lookupError && (
+            <p className="text-xs text-red-500">{lookupError}</p>
+          )}
+          {scannedBookMeta && (
+            <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700">
+              <span>✅</span>
+              <span>書籍情報を取得しました（出版社・発行日・ISBNも保存されます）</span>
+            </div>
           )}
         </div>
       )}
