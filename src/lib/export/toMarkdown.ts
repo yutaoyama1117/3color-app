@@ -47,11 +47,14 @@ export function toMarkdown(content: ContentData, marks: MarkData[]): string {
   lines.push('---')
   lines.push('')
 
+  // セクション情報があれば色別+セクション別に出力
+  const sections = content.textSections
+  const hasSections = sections && sections.length > 1
+
   // 色別セクション
   for (const color of ['red', 'blue', 'green'] as MarkColor[]) {
     const colorMarks = contentMarks
       .filter((m) => m.color === color)
-      // 出現順（charOffsetStart 昇順）に並べる
       .sort((a, b) => a.charOffsetStart - b.charOffsetStart)
 
     if (colorMarks.length === 0) continue
@@ -59,13 +62,33 @@ export function toMarkdown(content: ContentData, marks: MarkData[]): string {
     lines.push(`## ${COLOR_META[color].heading}`)
     lines.push('')
 
-    for (const mark of colorMarks) {
-      lines.push(`> ${mark.markedText}`)
-      if (mark.comment) {
+    if (hasSections) {
+      // セクションごとにグループ化
+      for (const sec of sections) {
+        const secMarks = colorMarks.filter((m) =>
+          m.sectionId ? m.sectionId === sec.id : !m.sectionId && sec.id === sections[0].id,
+        )
+        if (secMarks.length === 0) continue
+        lines.push(`### ${sec.label || sec.id}`)
         lines.push('')
-        lines.push(`💬 ${mark.comment}`)
+        for (const mark of secMarks) {
+          lines.push(`> ${mark.markedText}`)
+          if (mark.comment) {
+            lines.push('')
+            lines.push(`💬 ${mark.comment}`)
+          }
+          lines.push('')
+        }
       }
-      lines.push('')
+    } else {
+      for (const mark of colorMarks) {
+        lines.push(`> ${mark.markedText}`)
+        if (mark.comment) {
+          lines.push('')
+          lines.push(`💬 ${mark.comment}`)
+        }
+        lines.push('')
+      }
     }
   }
 

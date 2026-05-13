@@ -39,7 +39,7 @@ export function RelatedMarkList({ mark }: RelatedMarkListProps) {
             color: m.color,
             contentTitle: content?.title ?? '不明',
             contentType: content?.type ?? 'book',
-            createdAt: m.createdAt.toISOString(),
+            createdAt: new Date(m.createdAt).toISOString(),
           }
         })
 
@@ -108,7 +108,7 @@ export function RelatedMarkList({ mark }: RelatedMarkListProps) {
         contentType: content.type,
         similarity: link.similarity ?? 1,
         isLinked: true,
-        createdAt: m.createdAt.toISOString(),
+        createdAt: new Date(m.createdAt).toISOString(),
       } as RelatedMarkSuggestion
     })
     .filter((x): x is RelatedMarkSuggestion => x !== null)

@@ -33,7 +33,7 @@ export function SessionList({ sessions, onRevokeOthers }: SessionListProps) {
                 )}
               </div>
               <div className="text-xs text-gray-500">
-                最終アクセス: {s.lastActiveAt.toLocaleString('ja-JP')}
+                最終アクセス: {new Date(s.lastActiveAt).toLocaleString('ja-JP')}
                 {s.ipAddress && ` / ${s.ipAddress}`}
               </div>
             </div>

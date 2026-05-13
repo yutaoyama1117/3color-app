@@ -115,7 +115,7 @@ export function MarkSidePanel({ mark, onClose }: MarkSidePanelProps) {
           {/* フッター */}
           <div className="border-t border-gray-100 pt-3">
             <p className="mb-3 text-xs text-gray-400">
-              {mark.createdAt.toLocaleDateString('ja-JP')}
+              {new Date(mark.createdAt).toLocaleDateString('ja-JP')}
             </p>
             <button
               type="button"

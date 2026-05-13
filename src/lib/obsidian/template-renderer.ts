@@ -19,9 +19,9 @@ export function sanitizeFilename(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 200)
 }
 
-/** 日時を YYYY-MM-DD 形式に */
-export function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10)
+/** 日時を YYYY-MM-DD 形式に（persist後のstring型にも対応） */
+export function formatDate(d: Date | string): string {
+  return new Date(d).toISOString().slice(0, 10)
 }
 
 /** タイムスタンプ秒を MM:SS 形式に */
@@ -124,7 +124,7 @@ export function renderDailyMarkdown(date: Date, marksByContent: Map<string, { co
   lines.push(`marks_count: ${total}`)
   lines.push('---')
   lines.push('')
-  lines.push(`# 📅 ${date.toLocaleDateString('ja-JP')} のマーク`)
+  lines.push(`# 📅 ${new Date(date).toLocaleDateString('ja-JP')} のマーク`)
   lines.push('')
 
   for (const { content, marks } of marksByContent.values()) {

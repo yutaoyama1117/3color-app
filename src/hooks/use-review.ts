@@ -24,7 +24,7 @@ export function useReview(): UseReviewResult {
     return marks.filter((m) => {
       // 未復習（nextReviewAt が無い）or 期限到来
       if (!m.nextReviewAt) return true
-      return m.nextReviewAt.getTime() <= now
+      return new Date(m.nextReviewAt).getTime() <= now
     })
   }, [marks])
 

@@ -30,17 +30,19 @@ export async function POST(request: Request) {
       throw new Error(`Jina API error: ${response.status}`)
     }
 
-    const text = await response.text()
+    // Jina APIはAccept: application/jsonでJSONを返す
+    const json = await response.json() as {
+      code?: number
+      data?: { title?: string; content?: string; url?: string }
+    }
 
-    // Jina のレスポンスからタイトルと本文を抽出
-    const titleMatch = text.match(/^Title:\s*(.+)$/m)
-    const title = titleMatch?.[1]?.trim() ?? new URL(url).hostname
+    // JSONレスポンスからtitleとcontentを抽出
+    const title = json.data?.title?.trim() ?? new URL(url).hostname
+    const content = json.data?.content?.trim() ?? ''
 
-    // Title行・URL行・メタ情報を除いた本文部分を取得
-    const bodyLines = text
-      .split('\n')
-      .filter((line) => !line.startsWith('Title:') && !line.startsWith('URL Source:') && !line.startsWith('Markdown Content:'))
-    const content = bodyLines.join('\n').trim()
+    if (!content) {
+      throw new Error('本文を取得できませんでした')
+    }
 
     const result: UrlFetchResult = {
       title,

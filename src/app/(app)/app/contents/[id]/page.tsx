@@ -1,14 +1,14 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useEffect } from 'react'
 import Link from 'next/link'
 import { useContentStore } from '@/stores/contentStore'
 import { useMarkStore } from '@/stores/markStore'
 import { useJobStore } from '@/stores/jobStore'
 import { MarkingViewer } from '@/components/organisms/MarkingViewer'
-import { AiSummarySection } from '@/components/organisms/AiSummarySection'
 import { JobProgressIndicator } from '@/components/molecules/JobProgressIndicator'
 import { JobErrorRetry } from '@/components/molecules/JobErrorRetry'
+import { BookMetaCard } from '@/components/organisms/BookMetaCard'
 import { toMarkdown, downloadMarkdown } from '@/lib/export/toMarkdown'
 import { useJobEvents } from '@/hooks/use-job-events'
 
@@ -18,20 +18,26 @@ interface Props {
 
 export default function ContentDetailPage({ params }: Props) {
   const { id } = use(params)
-  const { getContent, updateContentStatus } = useContentStore()
+  const { getContent, updateContentStatus, addTextSection, migrateToSections } = useContentStore()
   const { marks } = useMarkStore()
   const { getJobsByContentId } = useJobStore()
-  const [showSummary, setShowSummary] = useState(false)
   const content = getContent(id)
 
   useJobEvents({})
+
+  // 旧bodyTextからtextSectionsへの自動移行（textSectionsが未定義の場合のみ）
+  useEffect(() => {
+    if (content && content.bodyText && content.textSections === undefined) {
+      migrateToSections(id)
+    }
+  }, [content, id, migrateToSections])
 
   if (!content) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center px-6">
         <p className="mb-4 text-lg font-medium text-gray-700">コンテンツが見つかりません</p>
         <Link href="/app" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
-          ← マイ本棚へ
+          本棚へ戻る
         </Link>
       </div>
     )
@@ -73,16 +79,7 @@ export default function ContentDetailPage({ params }: Props) {
     )
   }
 
-  if (!content.bodyText) {
-    return (
-      <div className="flex flex-col items-center justify-center py-32 text-center px-6">
-        <p className="mb-4 text-lg font-medium text-gray-700">本文テキストがありません</p>
-        <Link href="/app" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
-          ← マイ本棚へ
-        </Link>
-      </div>
-    )
-  }
+  const contentMarks = marks.filter((m) => m.contentId === id)
 
   const handleExport = () => {
     const md = toMarkdown(content, marks)
@@ -90,47 +87,64 @@ export default function ContentDetailPage({ params }: Props) {
     downloadMarkdown(`${safeName}.md`, md)
   }
 
+  /** テキスト追記（addTextSection使用） */
+  const handleAppendText = (text: string, label?: string) => {
+    addTextSection(id, text, label)
+  }
+
   return (
     <div className="flex h-full flex-col">
+      {/* iOS NavBar風 スティッキーヘッダー */}
+      <header className="sticky top-0 z-30 border-b border-gray-200/60 bg-[#f2f2f7]/80 backdrop-blur-xl safe-area-top">
+        <div className="flex items-center justify-between px-4 py-2">
+          {/* 左: 戻るボタン */}
+          <Link
+            href="/app"
+            className="flex items-center gap-0.5 text-[17px] font-normal text-blue-500 active:opacity-60"
+          >
+            <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            本棚
+          </Link>
+
+          {/* 中央: タイトル */}
+          <h1 className="mx-3 flex-1 truncate text-center text-[17px] font-semibold text-gray-900">
+            {content.title}
+          </h1>
+
+          {/* 右: Markdown保存ボタン */}
+          <button
+            type="button"
+            onClick={handleExport}
+            className="flex h-8 w-8 items-center justify-center rounded-full active:bg-gray-200/60"
+            aria-label="Markdown保存"
+          >
+            <svg className="h-[20px] w-[20px] text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      {/* メインコンテンツ */}
       <div className="flex-1 overflow-auto">
         <MarkingViewer
           contentId={content.id}
           title={content.title}
-          bodyText={content.bodyText}
+          bodyText={content.bodyText ?? ''}
+          contentType={content.type}
+          textSections={content.textSections}
+          onAppendText={handleAppendText}
         />
 
-        {showSummary && (
-          <div className="mx-auto max-w-2xl px-4 pb-10">
-            <AiSummarySection content={content} monthlyUsage={{ used: 0, limit: 10 }} />
+        {/* 書籍情報カード（本タイプのみ表示） */}
+        {content.type === 'book' && (
+          <div className="mx-auto max-w-2xl px-4 pb-8">
+            <BookMetaCard content={content} />
           </div>
         )}
       </div>
-
-      {/* フッター：モバイル最適化 */}
-      <footer className="border-t border-gray-100 bg-white px-4 py-3 safe-area-bottom">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/app"
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 active:bg-gray-50"
-          >
-            ← 本棚へ
-          </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={() => setShowSummary((v) => !v)}
-              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold text-blue-700 active:bg-blue-100"
-            >
-              🤖 AI要約
-            </button>
-            <button
-              onClick={handleExport}
-              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-600 active:bg-gray-50"
-            >
-              📥 保存
-            </button>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

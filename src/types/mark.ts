@@ -3,6 +3,8 @@ export type MarkColor = 'red' | 'blue' | 'green'
 export interface MarkData {
   id: string
   contentId: string
+  /** マークが属するテキストセクションID */
+  sectionId?: string
   color: MarkColor
   markedText: string
   charOffsetStart: number

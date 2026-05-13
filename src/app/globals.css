@@ -128,8 +128,37 @@ nextjs-portal {
   }
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
+}
+
+/* iOS ネイティブ風グローバルスタイル */
+@layer utilities {
+  /* Safe area 対応 */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* iOS ライクなスクロール挙動 */
+.overflow-auto,
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* タップハイライトを消してネイティブ感 */
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS 背景色: #f2f2f7 に近い warm gray */
+.bg-ios-grouped {
+  background-color: #f2f2f7;
 }

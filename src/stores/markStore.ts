@@ -5,6 +5,7 @@ import type { MarkColor, MarkData } from '@/types/mark'
 
 interface AddMarkInput {
   contentId: string
+  sectionId?: string
   color: MarkColor
   markedText: string
   charOffsetStart: number
@@ -15,6 +16,10 @@ interface MarkStore {
   marks: MarkData[]
   addMark: (input: AddMarkInput) => string
   removeMark: (id: string) => void
+  /** コンテンツIDに紐づくマークを一括削除 */
+  removeMarksByContentIds: (contentIds: string[]) => void
+  /** セクションIDに紐づくマークを一括削除 */
+  removeMarksBySectionId: (contentId: string, sectionId: string) => void
   updateMarkColor: (id: string, color: MarkColor) => void
   updateMarkComment: (id: string, comment: string) => void
   /** SM-2 復習結果でマークを更新 */
@@ -42,6 +47,19 @@ export const useMarkStore = create<MarkStore>()(
 
       removeMark: (id) => {
         set((state) => ({ marks: state.marks.filter((m) => m.id !== id) }))
+      },
+
+      removeMarksByContentIds: (contentIds) => {
+        const idSet = new Set(contentIds)
+        set((state) => ({ marks: state.marks.filter((m) => !idSet.has(m.contentId)) }))
+      },
+
+      removeMarksBySectionId: (contentId, sectionId) => {
+        set((state) => ({
+          marks: state.marks.filter(
+            (m) => !(m.contentId === contentId && m.sectionId === sectionId),
+          ),
+        }))
       },
 
       updateMarkColor: (id, color) => {

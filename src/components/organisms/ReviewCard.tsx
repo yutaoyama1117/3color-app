@@ -30,7 +30,7 @@ export function ReviewCard({ mark, content, onGrade }: ReviewCardProps) {
         <p className="mb-1 text-xs text-gray-500">📚 {content.title}</p>
       )}
       <p className="mb-4 text-xs text-gray-400">
-        📅 {mark.createdAt.toLocaleDateString('ja-JP')} にマーク
+        📅 {new Date(mark.createdAt).toLocaleDateString('ja-JP')} にマーク
       </p>
 
       {!showDetails && (

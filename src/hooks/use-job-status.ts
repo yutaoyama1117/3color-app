@@ -15,5 +15,5 @@ export function useContentJobStatus(contentId: string): JobData | undefined {
   const { getJobsByContentId } = useJobStore()
   const jobs = getJobsByContentId(contentId)
   // 最新のジョブを返す（createdAt 降順の先頭）
-  return jobs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0]
+  return jobs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
 }
