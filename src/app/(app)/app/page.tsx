@@ -86,20 +86,12 @@ export default function AppTopPage() {
           <p className="mb-6 text-sm text-gray-400">
             本・記事・動画を登録してマーキングを始めましょう
           </p>
-          <div className="flex gap-3">
-            <a
-              href="/app/register"
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              コンテンツを登録する
-            </a>
-            <a
-              href="/app/demo"
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
-              デモを試す
-            </a>
-          </div>
+          <a
+            href="/app/register"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            コンテンツを登録する
+          </a>
         </div>
       ) : (
         /* 検索結果ゼロ */
