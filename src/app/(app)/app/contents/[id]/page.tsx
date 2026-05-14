@@ -129,6 +129,13 @@ export default function ContentDetailPage({ params }: Props) {
 
       {/* メインコンテンツ */}
       <div className="flex-1 overflow-auto">
+        {/* 書籍情報パネル（本タイプのみ・テキストの上に表示） */}
+        {content.type === 'book' && (
+          <div className="mx-auto max-w-2xl px-4 pt-4">
+            <BookMetaCard content={content} />
+          </div>
+        )}
+
         <MarkingViewer
           contentId={content.id}
           title={content.title}
@@ -137,13 +144,6 @@ export default function ContentDetailPage({ params }: Props) {
           textSections={content.textSections}
           onAppendText={handleAppendText}
         />
-
-        {/* 書籍情報カード（本タイプのみ表示） */}
-        {content.type === 'book' && (
-          <div className="mx-auto max-w-2xl px-4 pb-8">
-            <BookMetaCard content={content} />
-          </div>
-        )}
       </div>
     </div>
   )
